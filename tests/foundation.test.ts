@@ -38,12 +38,12 @@ test('desktop foundation enforces isolated sandbox and blocks new navigation', a
   assert.match(html, /connect-src 'self'/);
 });
 
-test('browser screen honestly identifies foundation without creating a fake vault', async () => {
+test('browser screen honestly requires desktop without creating a fake vault', async () => {
   const { default: App } = await import('../src/App.js');
   const html = renderToStaticMarkup(createElement(App));
-  assert.match(html, /Foundation/);
-  assert.match(html, /not yet available/);
-  assert.doesNotMatch(html, /<input|<button/);
+  assert.match(html, /Desktop app required/);
+  assert.match(html, /No vault data is saved in this browser/);
+  assert.doesNotMatch(html, /<input|<button|<textarea/);
   const renderer = await source('src/App.tsx');
   assert.doesNotMatch(renderer, /localStorage|sessionStorage|https?:/);
 });
