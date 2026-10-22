@@ -127,7 +127,7 @@ function Workspace({ controller }: { controller: VaultController }) {
             <button disabled={view.pending || !controller.dirty} onClick={() => controller.discard()}>Discard changes</button>
             <span className="action-spacer" />
             <button disabled={view.pending} onClick={() => controller.importDocument()}>Import .env</button>
-            <button disabled={view.pending} onClick={() => controller.previewExport()}>Export .env…</button>
+            <button id="export-env" disabled={view.pending} onClick={() => controller.previewExport()}>Export .env…</button>
           </div>
           <p className="technical">Import replaces this saved document. Save or discard edits before importing, exporting, switching or locking.</p>
         </>}
@@ -139,7 +139,17 @@ function Workspace({ controller }: { controller: VaultController }) {
 export default function App({ controller: supplied }: { controller?: VaultController }) {
   const [controller] = useState(() => supplied ?? new VaultController(typeof window === 'undefined' ? undefined : window.vault));
   const view = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const exportWasOpen = useRef(false);
   useEffect(() => { if (!controller.getSnapshot().state) void controller.initialize(); }, [controller]);
+  useEffect(() => {
+    if (view.preview) exportWasOpen.current = true;
+    else if (exportWasOpen.current && !view.pending) {
+      // Dialog removal can precede the final pending=false render. Restore only
+      // after the trigger is enabled again, for both cancellation and confirm.
+      exportWasOpen.current = false;
+      document.getElementById('export-env')?.focus();
+    }
+  }, [view.preview, view.pending]);
   const unlocked = view.state && !view.state.locked && view.state.vault;
   return <main className="app-shell">
     <header className="app-header"><a className="brand" href="#main-content"><span className="brand-mark" aria-hidden="true" />Local Vault</a>
