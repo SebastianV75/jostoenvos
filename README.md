@@ -1,70 +1,59 @@
-# Local vault — foundation
+# Local vault
 
-T1 provides an Electron + React + TypeScript + Vite foundation, not a working
-vault. The screen stores nothing. Encryption, native dialogs, persistence, and
-renderer/IPC integration follow in T2–T4. Never enter real secrets into test data.
+An offline Electron vault for projects and environment documents. Main owns the
+password-based encryption, local storage and native file dialogs; the sandboxed
+renderer edits exact .env text. Use only obvious fake secrets in tests and demos.
 
 ## Run
 
 Use Node 22.12+ and npm. Install with `npm ci`.
 
-- `npm run dev:browser`: loopback-only Vite development server (default port 5173),
-  with hot updates (development-only CSP allows Vite's inline styles; packaged
-  HTML does not). `window.vault` is absent; subsequent browser tests may inject
-  a typed fake bridge explicitly. No production browser demo is seeded.
 - `npm run dev`: build local assets and launch Electron; rerun after edits.
+- `npm run dev:browser`: loopback Vite server (default port 5173), without a vault
+  bridge or persistence. Tests can explicitly inject a typed fake bridge.
 - `npm test`: deterministic Node tests via tsx.
-- `npm run typecheck`: renderer, shared API, desktop, tests, and Vite config.
-- `npm run build`: offline renderer assets in `dist/` and CommonJS desktop bundles
-  in `dist-electron/`. Fonts are bundled from the three Fontsource packages.
+- `npm run typecheck`: renderer, shared API, desktop and tests.
+- `npm run build`: offline renderer assets in `dist/`, including bundled fonts,
+  and sandbox-compatible CommonJS desktop/preload bundles in `dist-electron/`.
 - `npm start`: launch the previously built desktop application.
+- `node scripts/smoke.mjs`: one bounded native production launch with isolated
+  HOME/XDG directories; `--help` explains the test and deadline. Requires an
+  installed Electron binary, display and functioning sandbox. Does not download
+  or provision runtime dependencies. Timeout is failure, never a smoke pass.
 
-Desktop launch requires the host's Electron runtime libraries and a graphical
-session with a working sandbox. Do not disable the sandbox to bypass host issues.
-The architecture uses Electron's macOS/Windows/Linux lifecycle; this is not a
-packaging configuration or evidence of native checks on those platforms.
+No custom application data-directory flags are supported. The vault is fixed at
+`vault/vault.json` under Electron's application-specific `userData` directory.
+Only one app instance can own it. Never disable the sandbox to bypass host issues.
 
-## Canonical bridge: `shared/api.ts`
+## Use
 
-Exports `VaultEnvironment`, `VaultProject`, `VaultSnapshot`, `VaultState`,
-`ExportPreview`, and `VaultBridge`; also declares optional `Window.vault`.
-T2 service and T3 renderer must import these types rather than redefine them.
-T4 implements the bridge in a sandboxed preload with per-operation IPC validation.
-The foundation preload intentionally exposes nothing.
+Create a vault with a master password, then add projects and environments. The
+editor preserves raw comments, ordering, whitespace and line endings. Lock clears
+decrypted state. Lock explicitly before leaving the computer: suspend does not
+automatically lock this MVP.
 
-- Snapshot: projects `{id, name, environments}`; environments `{id, name, content}`.
-  Content is raw .env text, preserving comments, ordering, whitespace and line endings.
-- State: `{exists, locked, vault}`; `vault` is null while absent or locked.
-- `state`, `create(password)`, `unlock(password)`, `lock`, `addProject(name)`,
-  `addEnvironment(projectId, name)`, and
-  `saveEnvironment(projectId, environmentId, content)` resolve full state.
-- `importEnvironment(projectId, environmentId)` opens a native file dialog and
-  resolves full state, or null on cancellation without changing anything.
-- `previewExport(projectId, environmentId)` opens a native destination dialog,
-  returning null on cancellation or `{id, destinationLabel, previousContent,
-  proposedContent}`. Null previous content means no existing file, not an empty file.
-  The label is display-only; the opaque id is the only confirmation capability.
-- `confirmExport(previewId)` resolves state after writing; stale previews reject
-  without writing. `cancelExport(previewId)` resolves void without touching files.
-  Preview ids are main-owned, single-use, and invalidated on lock.
-- `backup()` opens a native save dialog and resolves state or null cancellation.
-  It writes only an encrypted portable snapshot. `restore(password)` opens a
-  native file dialog and resolves state or null cancellation. It validates and
-  decrypts completely before replacing the active vault.
+Import uses a native open dialog. Export selects a destination and shows its
+previous and proposed contents; only explicit confirmation writes. Cancellation
+and stale previews do not write. Encrypted backups require a **new file name**.
+Restore uses the backup password and asks explicitly before replacing an existing
+vault. Canceling either native dialog changes nothing.
 
-Every method returns a Promise. Failures reject with an Error whose message is the
-exact service message; never swallow, replace, or log secret-bearing arguments.
-Specific service validation/error strings will be established by T2, not invented
-by the foundation. No arbitrary paths, commands, generic IPC, or keys cross this
-API. Main owns Node built-in crypto and all vault IO; no cryptography is implemented
-yet. Password loss will be unrecoverable; OS unlock and remote services are deferred.
+**Losing the password is unrecoverable.** There is no account, password reset,
+OS unlock, remote backend, sharing or synchronization. Back up before restoring.
 
-## Design and verification boundaries
+## Implementation and proof
 
-The foundation adapts the inspected landing: Newsreader headings, Geist body,
-Geist Mono technical copy, light #f8f9fa ground, white surfaces, restrained 56px
-grid, and #38e08a accent. All fonts load offline. There is no decorative motion.
-Tests pin the shared contract, explicit sandbox/isolation settings, restricted
-navigation, CSP, and honest placeholder output. Structural security tests are not
-a replacement for T4 native integration or the independent security verification.
-No macOS/Windows packaging or native execution is claimed by T1.
+- [Desktop boundary and native checks](docs/desktop.md)
+- [Encryption, file safety and limits](docs/vault.md)
+- [Renderer and design boundaries](docs/interface.md)
+- Canonical 13-method renderer contract: `shared/api.ts`.
+
+No arbitrary paths, commands, filesystem methods, keys or generic IPC cross the
+bridge. Service errors remain useful; filesystem failures are redacted. Fonts
+load offline. The visual language follows the inspected landing's restrained
+surfaces, typography and green accent.
+
+The architecture supports macOS, Windows and Linux, but a build is not a packaged
+installer or proof of execution on those platforms. Native smoke results must be
+reported separately; browser interaction checks and independent security review
+remain separate evidence.

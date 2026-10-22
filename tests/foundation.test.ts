@@ -32,7 +32,9 @@ test('desktop foundation enforces isolated sandbox and blocks new navigation', a
   assert.match(main, /will-navigate.*preventDefault/s);
   assert.doesNotMatch(main, /loadURL\(|disable.*sandbox|webSecurity: false/);
   const preload = await source('electron/preload.ts');
-  assert.doesNotMatch(preload, /ipcRenderer|exposeInMainWorld|require\(/);
+  assert.match(preload, /exposeInMainWorld\(['"]vault['"]/);
+  assert.match(preload, /Object\.freeze\(/);
+  assert.doesNotMatch(preload, /exposeInMainWorld\(['"](?:ipcRenderer|require|process|fs)['"]|require\(/);
   const html = await source('index.html');
   assert.match(html, /Content-Security-Policy/);
   assert.match(html, /connect-src 'self'/);
