@@ -1,0 +1,36 @@
+:root {
+  font-family: 'Geist', sans-serif;
+  color: #0e1013;
+  background: #f8f9fa;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 280px; }
+.foundation {
+  min-height: 100svh;
+  padding: clamp(24px, 5vw, 64px);
+  display: flex;
+  flex-direction: column;
+  background-image: linear-gradient(#00000005 1px, transparent 1px), linear-gradient(90deg, #00000005 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+header { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.brand-mark { width: 12px; height: 12px; border-radius: 3px; background: #38e08a; }
+section {
+  width: min(100%, 680px);
+  margin: auto;
+  padding: clamp(24px, 5vw, 48px);
+  border: 1px solid #0000001a;
+  border-radius: 14px;
+  background: #fff;
+}
+h1 { font: 500 clamp(32px, 5vw, 48px)/1.1 'Newsreader', serif; margin: 20px 0; text-wrap: balance; }
+p { color: #5e6671; line-height: 1.6; }
+.eyebrow, footer, .note { font-family: 'Geist Mono', monospace; font-size: 12px; }
+.eyebrow { color: #0e1013; margin: 0; }
+.note { border-top: 1px solid #0000001a; padding-top: 20px; margin-top: 28px; }
+footer { color: #5e6671; margin-top: 32px; line-height: 1.6; }
+header { margin-bottom: 32px; }
