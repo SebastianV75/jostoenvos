@@ -28,7 +28,13 @@ Only one app instance can own it. Never disable the sandbox to bypass host issue
 ## Use
 
 Create a vault with a master password, then add projects and environments. The
-editor preserves raw comments, ordering, whitespace and line endings. Lock clears
+default **Variables** view shows separate, ordered read-only assignments from the
+current draft, including duplicate names. **Reveal values** shows literal raw RHS
+spelling, not evaluated dotenv values; **Hide values** removes values from the DOM.
+Select **Raw** and reveal to edit. Unsupported syntax shows an incomplete-display
+warning with a line number and a Raw route; import/export retain the whole document.
+See [supported display syntax](docs/interface.md#display-grammar-not-runtime-dotenv-semantics).
+The editor preserves raw comments, ordering, whitespace and line endings. Lock clears
 decrypted state. Lock explicitly before leaving the computer: suspend does not
 automatically lock this MVP.
 

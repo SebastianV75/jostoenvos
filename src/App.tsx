@@ -1,5 +1,33 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import { VaultController } from './vault-controller.js';
+import { VariableList } from './VariableList.js';
+
+type DocumentMode = 'variables' | 'raw';
+
+/** Shared rendering path for the workspace and isolated Raw preservation tests. */
+export function DocumentView({ controller, mode }: { controller: VaultController; mode: DocumentMode }) {
+  const view = controller.getSnapshot();
+  if (mode === 'variables') return <VariableList draft={view.draft} revealed={view.revealed} />;
+  return <>
+    {view.revealed ? <><label className="editor-label" htmlFor="env-document">Raw .env document</label>
+      <textarea id="env-document" spellCheck={false} autoCapitalize="off" autoComplete="off" autoCorrect="off"
+        disabled={view.pending} value={view.draft} onChange={e => controller.editFromTextarea(e.target.value)}
+        aria-describedby="raw-advice" /></> : <div className="hidden-document"><span aria-hidden="true">••••••••••••</span><p>Document hidden. Reveal to view or edit.</p></div>}
+    <p id="raw-advice" className="technical">Raw text. Comments, order and existing line endings are preserved.</p>
+  </>;
+}
+
+function EnvironmentDocument({ controller }: { controller: VaultController }) {
+  const [mode, setMode] = useState<DocumentMode>('variables');
+  const view = controller.getSnapshot();
+  return <>
+    <div className="document-modes" role="group" aria-label="Document view">
+      <button disabled={view.pending || !!view.preview} aria-pressed={mode === 'variables'} onClick={() => setMode('variables')}>Variables</button>
+      <button disabled={view.pending || !!view.preview} aria-pressed={mode === 'raw'} onClick={() => setMode('raw')}>Raw</button>
+    </div>
+    <DocumentView controller={controller} mode={mode} />
+  </>;
+}
 
 function Modal({ title, onCancel, pending, children }: {
   title: string; onCancel: () => void; pending: boolean; children: ReactNode;
@@ -117,11 +145,7 @@ function Workspace({ controller }: { controller: VaultController }) {
             <p className="technical">.env · {controller.dirty ? 'Unsaved changes' : 'Saved document'}</p></div>
             <button disabled={view.pending} aria-pressed={view.revealed} onClick={() => controller.toggleReveal()}>
               {view.revealed ? 'Hide values' : 'Reveal values'}</button></div>
-          {view.revealed ? <><label className="editor-label" htmlFor="env-document">Raw .env document</label>
-            <textarea id="env-document" spellCheck={false} autoCapitalize="off" autoComplete="off" autoCorrect="off"
-              disabled={view.pending} value={view.draft} onChange={e => controller.editFromTextarea(e.target.value)}
-              aria-describedby="raw-advice" /></> : <div className="hidden-document"><span aria-hidden="true">••••••••••••</span><p>Document hidden. Reveal to view or edit.</p></div>}
-          <p id="raw-advice" className="technical">Raw text, not parsed. Comments, order and existing line endings are preserved.</p>
+          <EnvironmentDocument key={JSON.stringify([project.id, environment.id])} controller={controller} />
           <div className="editor-actions actions">
             <button className="primary" disabled={view.pending || !controller.dirty} onClick={() => controller.save()}>Save changes</button>
             <button disabled={view.pending || !controller.dirty} onClick={() => controller.discard()}>Discard changes</button>

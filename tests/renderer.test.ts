@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import App from '../src/App.js';
+import App, { DocumentView } from '../src/App.js';
 import { VaultController } from '../src/vault-controller.js';
 import type { VaultBridge, VaultState } from '../shared/api.js';
 
@@ -74,8 +74,12 @@ test('password mismatch rejects create without mutation; successful create and u
 
 test('raw editor stays hidden initially; save preserves exact raw text and authoritative state', async () => {
   const f = fixture(); const c = new VaultController(f.bridge); await c.initialize();
-  assert.doesNotMatch(html(c), /FAKE_TOKEN/);
-  c.toggleReveal(); assert.match(html(c), /Raw .env document/);
+  assert.match(html(c), /FAKE_TOKEN/);
+  assert.doesNotMatch(html(c), /example-only|<textarea/);
+  c.toggleReveal();
+  const rawView = renderToStaticMarkup(createElement(DocumentView, { controller: c, mode: 'raw' }));
+  assert.match(rawView, /Raw .env document/);
+  assert.match(rawView, /<textarea/);
   const edited = raw + 'FAKE_EMPTY=\r\n'; c.edit(edited);
   await c.save();
   assert.deepEqual(f.calls, [['save', 'p', 'e', edited]]);
@@ -84,6 +88,46 @@ test('raw editor stays hidden initially; save preserves exact raw text and autho
   assert.equal(c.getSnapshot().state, f.stored());
   assert.equal(c.getSnapshot().draft, '');
   assert.deepEqual(c.getSnapshot().state, absent);
+});
+
+test('import projects three distinct rows, current draft and duplicates without exposing hidden secrets', async () => {
+  const f = fixture(); const c = new VaultController(f.bridge); await c.initialize();
+  const imported = unlocked();
+  const content = '\uFEFF# fake\r\nFAKE_A=example-first\r\nFAKE_EMPTY=\r\nFAKE_A="example-last\r\nFAKE_INSIDE=not-a-row"\r\n';
+  imported.vault!.projects[0].environments[0].content = content;
+  f.bridge.importEnvironment = async () => imported;
+  f.bridge.previewExport = async () => ({ id: 'import-preview', destinationLabel: 'fake.env', previousContent: null, proposedContent: content });
+  await c.importDocument();
+  assert.equal(c.getSnapshot().draft, content);
+  assert.equal((html(c).match(/class="variable-row"/g) ?? []).length, 3);
+  assert.doesNotMatch(html(c), /example-first|example-last|FAKE_INSIDE|not-a-row|<textarea/);
+  c.toggleReveal();
+  assert.match(html(c), /example-first/); assert.match(html(c), /Empty value/);
+  assert.match(html(c), /FAKE_INSIDE=not-a-row/);
+  c.edit(content + 'FAKE_DRAFT=example-draft\r\n');
+  assert.match(html(c), /FAKE_DRAFT/); assert.match(html(c), /example-draft/);
+  c.toggleReveal(); assert.doesNotMatch(html(c), /example-draft|example-first|example-last/);
+  assert.equal(c.getSnapshot().draft, content + 'FAKE_DRAFT=example-draft\r\n');
+  c.discard(); assert.equal(c.getSnapshot().draft, content);
+  await c.previewExport(); assert.equal(c.getSnapshot().preview?.proposedContent, content);
+  await c.cancelExport(); assert.equal(c.getSnapshot().draft, content);
+  assert.equal(c.getSnapshot().state, imported);
+  await c.lock(); assert.doesNotMatch(html(c), /FAKE_A|example-first|FAKE_INSIDE/);
+});
+
+test('incomplete display gives only a line diagnostic and Raw route, with hidden DOM free of invalid secrets', async () => {
+  const f = fixture(); const c = new VaultController(f.bridge); await c.initialize();
+  c.edit('FAKE_OK=example-visible\ninvalid-example-secret\nFAKE_LATER=example-later');
+  const hidden = html(c);
+  assert.match(hidden, /Incomplete variable display/); assert.match(hidden, /line 2/);
+  assert.match(hidden, />Raw</);
+  assert.doesNotMatch(hidden, /example-visible|invalid-example-secret|FAKE_LATER|example-later/);
+  const hiddenRaw = renderToStaticMarkup(createElement(DocumentView, { controller: c, mode: 'raw' }));
+  assert.doesNotMatch(hiddenRaw, /<textarea|invalid-example-secret/);
+  c.toggleReveal();
+  const revealedRaw = renderToStaticMarkup(createElement(DocumentView, { controller: c, mode: 'raw' }));
+  assert.match(revealedRaw, /<textarea/); assert.match(revealedRaw, /invalid-example-secret/);
+  assert.equal(c.getSnapshot().draft, 'FAKE_OK=example-visible\ninvalid-example-secret\nFAKE_LATER=example-later');
 });
 
 test('textarea edits preserve untouched CRLF and mixed endings instead of normalizing the document', async () => {
@@ -100,7 +144,8 @@ test('dirty edits protect navigation, import, export, backup, lock and adding re
   c.edit('FAKE_UNSAVED=example');
   c.select('p', 'other'); await c.importDocument(); await c.previewExport();
   await c.backup(); await c.lock(); await c.addProject('New'); await c.addEnvironment('New');
-  assert.deepEqual(f.calls, []); assert.equal(c.getSnapshot().environmentId, 'e');
+  assert.deepEqual(f.calls, []); assert.deepEqual(f.stored(), unlocked());
+  assert.equal(c.getSnapshot().state, f.stored()); assert.equal(c.getSnapshot().environmentId, 'e');
   assert.equal(c.getSnapshot().draft, 'FAKE_UNSAVED=example');
   assert.match(c.getSnapshot().error, /Save or discard/);
   c.discard(); c.select('p', 'other'); assert.equal(c.getSnapshot().draft, '');
@@ -114,7 +159,10 @@ test('export preview compares empty existing file with proposed text; cancel nev
   const output = html(c);
   assert.match(output, /Plaintext export/); assert.match(output, /Previous content/);
   assert.match(output, /Proposed content/); assert.match(output, /Confirm export/);
+  const beforeCancel = c.getSnapshot(); const storedBeforeCancel = structuredClone(f.stored());
   await c.cancelExport();
+  assert.equal(c.getSnapshot().state, beforeCancel.state); assert.equal(c.getSnapshot().draft, beforeCancel.draft);
+  assert.deepEqual(f.stored(), storedBeforeCancel);
   assert.deepEqual(f.calls.at(-1), ['cancel', 'capability']);
   assert.equal(c.getSnapshot().preview, null);
   await c.previewExport(); await c.confirmExport();
@@ -176,6 +224,7 @@ test('pending operations cannot race, and successful lock clears all decrypted r
   c.toggleReveal(); c.edit(raw + '# changed'); const saving = c.save();
   await c.lock(); c.select('p', 'other'); c.edit('ignored');
   assert.equal(c.getSnapshot().pending, true); assert.equal(c.getSnapshot().environmentId, 'e');
+  assert.equal(c.getSnapshot().draft, raw + '# changed'); assert.deepEqual(f.stored(), unlocked());
   finish(unlocked()); await saving; await c.lock();
   const view = c.getSnapshot();
   assert.equal(view.state?.vault, null); assert.equal(view.draft, '');

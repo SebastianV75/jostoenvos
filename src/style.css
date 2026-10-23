@@ -63,6 +63,15 @@ input { border: 1px solid #00000029; border-radius: 6px; padding: 10px 12px; min
 .editor-heading h2 { margin-bottom: 4px; }
 .editor-heading p { margin: 0; }
 .editor-label { color: var(--muted); font-weight: 400; }
+.document-modes { display: flex; gap: 6px; margin: 20px 0 16px; }
+.document-modes button[aria-pressed="true"] { background: #0e1013; color: white; border-color: #0e1013; }
+.variable-list { margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.variable-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; padding: 16px; }
+.variable-row + .variable-row { border-top: 1px solid var(--border); }
+.variable-row dt, .variable-row dd { min-width: 0; overflow-wrap: anywhere; font: 12px/1.7 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
+.variable-row dt { font-weight: 500; }
+.variable-row dd { margin: 0; white-space: pre-wrap; }
+@media (max-width: 480px) { .variable-row { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
 textarea { display: block; width: 100%; min-height: 300px; resize: vertical; white-space: pre; overflow: auto; font: 400 13px/1.75 'Geist Mono', monospace; tab-size: 2; border: 1px solid #00000024; border-radius: 10px; background: #fafbfc; color: #0e1013; padding: 20px; }
 .hidden-document { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed #00000024; border-radius: 10px; background: #fafbfc; margin-top: 16px; padding: 24px; text-align: center; }
 .hidden-document > span { font: 24px 'Geist Mono', monospace; color: #a0a6ae; }
